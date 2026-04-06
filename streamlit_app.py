@@ -1,11 +1,8 @@
 import sys
 import os
 
-# Must be set before any protobuf-dependent library (paddle) is imported.
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-
-# When running locally, inject the backend venv so the ML packages are found.
-# On Streamlit Cloud this path won't exist, so we skip silently.
+# Inject backend's virtual environment packages into the path so Streamlit
+# can find PaddleOCR, ultralytics, and opencv which live in the backend venv.
 _local_venv = os.path.join(os.path.dirname(__file__), "backend", "venv", "Lib", "site-packages")
 if os.path.isdir(_local_venv):
     sys.path.insert(0, _local_venv)
