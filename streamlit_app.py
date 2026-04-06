@@ -1,8 +1,8 @@
 import sys
 import os
 
-# Inject backend's virtual environment packages into the path so Streamlit
-# can find PaddleOCR, ultralytics, and opencv which live in the backend venv.
+# When running locally, inject the backend venv so the ML packages are found.
+# On Streamlit Cloud this path won't exist, so we skip silently.
 _local_venv = os.path.join(os.path.dirname(__file__), "backend", "venv", "Lib", "site-packages")
 if os.path.isdir(_local_venv):
     sys.path.insert(0, _local_venv)
@@ -20,10 +20,10 @@ import streamlit as st
 import numpy as np
 import cv2
 from PIL import Image
+import easyocr
 
 from mock_db import get_owner_details
 from ultralytics import YOLO
-from paddleocr import PaddleOCR
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="PlateSense AI", layout="wide", page_icon="🚘")
@@ -36,7 +36,8 @@ st.markdown("Upload an image of a vehicle to detect its license plate and retrie
 def load_models():
     model_path = os.path.join(os.path.dirname(__file__), "backend", "license_plate_detector.pt")
     yolo_model = YOLO(model_path)
-    ocr_reader = PaddleOCR(lang="en", use_gpu=False, show_log=False)
+    # EasyOCR: GPU=False for cloud/CPU environments
+    ocr_reader = easyocr.Reader(["en"], gpu=False)
     return yolo_model, ocr_reader
 
 with st.spinner("Loading AI models… this may take a moment on first run."):
@@ -129,15 +130,16 @@ if uploaded_file is not None and models_loaded:
         gray = clahe.apply(gray)
         ocr_input = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
-        # 3. OCR
-        ocr_res = ocr_reader.ocr(ocr_input)
-        if not ocr_res or not ocr_res[0]:
-            ocr_res = ocr_reader.ocr(crop)
-        if not ocr_res or not ocr_res[0]:
+        # 3. EasyOCR extraction
+        ocr_res = ocr_reader.readtext(ocr_input)
+        if not ocr_res:
+            ocr_res = ocr_reader.readtext(crop)  # fallback to original crop
+        if not ocr_res:
             st.error("Plate detected but text unreadable.")
             st.stop()
 
-        raw = " ".join(line[1][0] for line in ocr_res[0] if line and len(line) == 2)
+        # EasyOCR returns list of (bbox, text, confidence)
+        raw = " ".join(item[1] for item in ocr_res)
         raw = re.sub(r"\bIND\b", "", raw, flags=re.IGNORECASE)
         cleaned = clean_plate_text(raw)
         cleaned = cleaned[3:] if cleaned.startswith("IND") else cleaned
@@ -173,4 +175,4 @@ if uploaded_file is not None and models_loaded:
             st.warning("Note: Plate format does not match standard Indian syntax — OCR may be slightly off.")
 
 st.markdown("---")
-st.caption("PlateSense AI · YOLOv8 + PaddleOCR")
+st.caption("PlateSense AI · YOLOv8 + EasyOCR")

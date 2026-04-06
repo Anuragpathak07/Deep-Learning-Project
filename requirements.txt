@@ -1,8 +1,6 @@
 streamlit
 ultralytics
-paddlepaddle
-paddleocr==2.8.1
-opencv-python-headless==4.10.0.84
+easyocr
+opencv-python-headless
 numpy
 pillow
-protobuf==3.20.3
