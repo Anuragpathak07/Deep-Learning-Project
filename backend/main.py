@@ -105,8 +105,7 @@ async def detect_license_plate(file: UploadFile = File(...)):
          logger.error(f"Error cropping/processing plate: {e}")
          return JSONResponse(status_code=500, content={"message": "Error processing detected plate"})
     
-    # 3. PaddleOCR
-    # PaddleOCR returns a nested list structure
+    #OUR OCR MODEL PERFORMS SEGMENTATION AND CLASSIFICATION
     result = ocr_reader.ocr(ocr_ready_plate)
     
     if not result or not result[0]:
@@ -115,7 +114,7 @@ async def detect_license_plate(file: UploadFile = File(...)):
         if not result or not result[0]:
              return JSONResponse(status_code=400, content={"message": "License plate detected but text unreadable."})
              
-    # Extract text from PaddleOCR result structure
+    # Extract text from OCR Model result structure
     ocr_results = [line[1][0] for line in result[0] if line and len(line) == 2]
     
     raw_text = " ".join(ocr_results)
